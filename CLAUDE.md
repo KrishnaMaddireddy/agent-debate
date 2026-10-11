@@ -1,47 +1,52 @@
-# Agent Debate — project instructions for Claude Code
+# Agent Debate: project instructions for Claude Code
 
-Read `PRD.md` first. It is the product; this file is how we work on it.
+Read `PRD.md` first: it is the product. `docs/DESIGN.md` is how this build implements it. This file
+is how we work on it.
 
 ## What this is
-N models answer one prompt independently, then critique each other, rebut,
-declare final positions, and code measures what moved. Generalised from
-`~/Projects/mcp-model-bridge` (Model Bridge) — that repo is the reference
-implementation for the provider adapters, the debate protocol, the event
-stream, the web console and the test discipline. Port, don't reinvent; when in
-doubt open `../mcp-model-bridge/model_bridge.js` and read the comment above the
-block you are about to write — every one names the live failure it fixes.
+Two to six models get one question. The build runs it in these steps:
+1. One model reads the question, and that reading goes to every later prompt.
+2. Each model answers on its own, as claims with evidence.
+3. Code audits the evidence.
+4. The models critique each other and rebut.
+5. Code measures what moved.
+6. A memo is written from those measurements.
+
+Generalised from `~/Projects/mcp-model-bridge` (Model Bridge). That repo is the reference for the
+provider adapters, the protocol and the console look.
+
+## Layout (rev 14)
+- `app/core/`: the engine. It is browser-safe, with no node imports, and runs unchanged in the server,
+  the console and the claude.ai page.
+- `app/server/`: node:http server, adapters, config, runs.
+- `app/ui/`: vanilla ES modules, served as-is.
+- `build/artifact.js`: links `app/core` + `app/ui` + `build/host-artifact.js` into one page.
+- `legacy/`: the rev ≤13 panel app. Read-only reference; nothing imports it.
 
 ## Rules
-- Zero runtime dependencies (node's own http/fs). No build step.
-- Keys live in `.env` / the shell. `providers.json` holds env VARIABLE NAMES.
-  Never paste a key into chat, a doc, or a fixture.
-- Symmetry is the product: every model gets identical inputs, ceilings,
-  timeouts and tools. Anything one provider can see that another cannot makes
-  the run measure the harness. Deliver everything through the prompt.
-- Code computes the objective parts (overlap, movement, grounding, agenda
-  coverage, participation). Never ask a model what code can compute; never let
-  a model grade itself.
-- Every ceiling and timeout is a function of the mandate, never a constant.
-- Phases after the first are fail-soft. A run with work in hand never dies.
-- Typed placeholders only in prompts; refuse template copies in every artifact
-  shape (artifact, critique, rebuttal).
-- Tests extract the REAL source block out of the engine, never a copy. All
-  suites green before anything ships. UI changes are loaded in a real browser
-  (Playwright) before they ship.
-- Rev numbering starts at 1. `VERSION.txt` carries what changed, test counts,
-  and md5s of every shipped file.
-
-## Build order
-PRD §14: M1 (CLI, two models, claims, gate, guard, diff, report) → M2
-(grounding + N-way + concurrency + scaling) → M3 (console) → M4 (skills,
-personas, expansion) → M5 (tools). Ship each milestone behind its tests.
-
-## First task
-Build M1. Start by writing `debate.js` with: `.env` autoload, args, the
-provider adapters ported from Model Bridge (`callOpenAIStyle`, `callAnthropic`,
-`_thinkMode`/`_thinkBody`/`_reasoningApi`, the temperature retry, the
-reasoning-channel recovery), the artifact schema from PRD §6, phases 1–4 from
-PRD §7, `extractJson` + the artifact-shape guard + the template-copy guard,
-the participation gate, overlap/movement, and the markdown report. Then
-`debate_nway_test.js` extracting the diff block. Prove it on five questions of
-different kinds (PRD §5) and record what each run taught in `LESSONS.md`.
+- **Zero runtime dependencies.** Node ≥ 20, `node:test`. No bundler for the local app.
+- **Never ship user config.** That means `local/providers.json`, `local/tools.json`, `.env`,
+  `local/seats.json`, `local/mcp.json`, `local/plugins.json` and `local/runs/`. Ship only `*.example`
+  and code.
+- **Keys live in `.env`.** `providers.json` holds variable names only. Never paste or echo a key.
+- **Providers are opt-in.** Never call a provider the user has not enabled, or a model they have not
+  listed. Don't spend on metered providers unless the user enabled them for this. Mock models are for
+  tests.
+- **Symmetry is the product.** Every analyst gets identical inputs, ceilings, timeouts, tools, skills
+  and lens, in every phase.
+- **Code computes what code can.** That covers overlap, movement, grounding, verdict tallies, root
+  causes and participation. Never ask a model what code can compute. Never let a model grade itself.
+- **Every ceiling and timeout follows from the mandate**, never from a constant.
+- **Phases after phase 1 are fail-soft.** A run with work in hand never dies.
+- **Guard every model output.** Typed placeholders only in schemas. Refuse template copies in every
+  artifact shape.
+- **One event stream.** Everything the UI or the report shows comes from `reduceEvents(events)`. Add an
+  event; never add a side channel.
+- **Tests.**
+  - `npm test` must be green before anything ships.
+  - UI changes are checked in a real browser with `npm run test:ui`.
+  - `npm run matrix` covers the ten question kinds.
+- **Committing.** Commit via the device bridge; never run git from the device VM. The device VM is
+  Linux and cannot run the Mac's node_modules, but there are none now.
+- **VERSION.txt** carries what changed, test counts and md5s of the shipped files. Record what a live
+  run taught in `LESSONS.md`.

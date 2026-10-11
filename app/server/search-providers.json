@@ -1,0 +1,178 @@
+{
+  "_comment": "Backends for the `web_search` tool. tools.json lists which of these to consider (`providers`) and the first one whose key is set in .env is used, unless `use` names one. Every preset yields the same shape \u2014 title, url, snippet \u2014 so the seats never see which backend answered. `${query}` is the seat's search string (URL-encoded in `url`/`query`, literal in `body`); every other ${NAME} is a variable from .env. Add your own: any JSON search API fits.",
+  "serpex": {
+    "label": "Serpex (Google)",
+    "http": {
+      "method": "POST",
+      "url": "https://api.serpex.dev/api/search",
+      "headers": {
+        "Authorization": "Bearer ${SERPEX_API_KEY}"
+      },
+      "body": {
+        "q": "${query}",
+        "engine": "google"
+      }
+    },
+    "extract": {
+      "list": "results",
+      "fields": [
+        "title",
+        "url",
+        "snippet"
+      ],
+      "limit": 5
+    }
+  },
+  "serper": {
+    "label": "Serper (Google)",
+    "http": {
+      "method": "POST",
+      "url": "https://google.serper.dev/search",
+      "headers": {
+        "X-API-KEY": "${SERPER_API_KEY}"
+      },
+      "body": {
+        "q": "${query}",
+        "num": 5
+      }
+    },
+    "extract": {
+      "list": "organic",
+      "fields": [
+        "title",
+        "link",
+        "snippet"
+      ],
+      "limit": 5,
+      "rename": {
+        "link": "url"
+      }
+    }
+  },
+  "brave": {
+    "label": "Brave Search",
+    "http": {
+      "method": "GET",
+      "url": "https://api.search.brave.com/res/v1/web/search",
+      "query": {
+        "q": "${query}",
+        "count": 5
+      },
+      "headers": {
+        "Accept": "application/json",
+        "X-Subscription-Token": "${BRAVE_API_KEY}"
+      }
+    },
+    "extract": {
+      "list": "web.results",
+      "fields": [
+        "title",
+        "url",
+        "description"
+      ],
+      "limit": 5,
+      "rename": {
+        "description": "snippet"
+      }
+    }
+  },
+  "tavily": {
+    "label": "Tavily",
+    "http": {
+      "method": "POST",
+      "url": "https://api.tavily.com/search",
+      "headers": {
+        "Authorization": "Bearer ${TAVILY_API_KEY}"
+      },
+      "body": {
+        "query": "${query}",
+        "max_results": 5
+      }
+    },
+    "extract": {
+      "list": "results",
+      "fields": [
+        "title",
+        "url",
+        "content"
+      ],
+      "limit": 5,
+      "rename": {
+        "content": "snippet"
+      }
+    }
+  },
+  "serpapi": {
+    "label": "SerpAPI (Google)",
+    "http": {
+      "method": "GET",
+      "url": "https://serpapi.com/search.json",
+      "query": {
+        "q": "${query}",
+        "num": 5,
+        "engine": "google",
+        "api_key": "${SERPAPI_API_KEY}"
+      }
+    },
+    "extract": {
+      "list": "organic_results",
+      "fields": [
+        "title",
+        "link",
+        "snippet"
+      ],
+      "limit": 5,
+      "rename": {
+        "link": "url"
+      }
+    }
+  },
+  "searxng": {
+    "label": "SearXNG (self-hosted, no key)",
+    "http": {
+      "method": "GET",
+      "url": "${SEARXNG_URL}/search",
+      "query": {
+        "q": "${query}",
+        "format": "json"
+      }
+    },
+    "extract": {
+      "list": "results",
+      "fields": [
+        "title",
+        "url",
+        "content"
+      ],
+      "limit": 5,
+      "rename": {
+        "content": "snippet"
+      }
+    }
+  },
+  "duckduckgo": {
+    "label": "DuckDuckGo Instant Answers (no key; abstracts, not full results)",
+    "http": {
+      "method": "GET",
+      "url": "https://api.duckduckgo.com/",
+      "query": {
+        "q": "${query}",
+        "format": "json",
+        "no_html": 1,
+        "skip_disambig": 1
+      }
+    },
+    "extract": {
+      "list": "RelatedTopics",
+      "fields": [
+        "Text",
+        "FirstURL"
+      ],
+      "rename": {
+        "Text": "snippet",
+        "FirstURL": "url"
+      },
+      "limit": 5
+    }
+  }
+}

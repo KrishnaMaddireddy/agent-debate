@@ -1,0 +1,30 @@
+{
+  "_comment": "Keyless public endpoints, so a seat can use them on any machine. Nothing here needs .env.",
+  "crossref_doi": {
+    "category": "reference",
+    "description": "Bibliographic record for one DOI from Crossref: title, authors, journal, year, publisher. Use it to confirm that a cited paper exists and says who wrote it and where.",
+    "args": { "doi": "string — e.g. 10.1038/nature14539" },
+    "http": { "method": "GET", "url": "https://api.crossref.org/works/${doi}", "headers": { "User-Agent": "agent-debate fact-check (local)" } },
+    "extract": {
+      "object": true,
+      "fields": ["message.title", "message.author", "message.container-title", "message.issued.date-parts", "message.publisher", "message.URL"],
+      "rename": { "message.title": "title", "message.author": "authors", "message.container-title": "journal", "message.issued.date-parts": "issued", "message.publisher": "publisher", "message.URL": "url" },
+      "maxLen": 2500
+    },
+    "budget_per_turn": 3
+  },
+  "wayback_snapshot": {
+    "category": "reference",
+    "description": "The Wayback Machine snapshot of a web page closest to a date (YYYYMMDD, optional). Use it when a cited page has changed or disappeared.",
+    "args": { "url": "string — the page address", "timestamp": "string — optional, YYYYMMDD" },
+    "defaults": { "timestamp": "" },
+    "http": { "method": "GET", "url": "https://archive.org/wayback/available?url=${url}&timestamp=${timestamp}" },
+    "extract": {
+      "object": true,
+      "fields": ["archived_snapshots.closest.url", "archived_snapshots.closest.timestamp", "archived_snapshots.closest.status"],
+      "rename": { "archived_snapshots.closest.url": "snapshot", "archived_snapshots.closest.timestamp": "timestamp", "archived_snapshots.closest.status": "status" },
+      "maxLen": 800
+    },
+    "budget_per_turn": 2
+  }
+}

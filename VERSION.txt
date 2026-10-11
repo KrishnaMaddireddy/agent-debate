@@ -1,0 +1,292 @@
+rev 15 — 2026-10-11
+
+What changed (rev 15): the spending cap and meter, the model scorecard, and a shareable page
+- Spending.
+  - Every adapter now returns billed usage (input, output, cached), summed over its own retries, and
+    the model that actually served.
+  - Prices are USD per 1M tokens, from the first of: your price (Settings › Providers › prices); $0 for
+    mock, the subscription CLI and local servers; app/server/prices.json (dated list prices, peak
+    rates, for DeepSeek and Moonshot); OpenRouter's live list.
+  - Cost is shown in the pre-flight line (typical and worst case), the header, each card, a Cost
+    panel, History, the report and the CLI.
+- The spending cap (console field, default $1; --budget; budgetUsd; default in Settings).
+  - It is checked before every call against what was spent plus every in-flight call's worst case,
+    so concurrent calls cannot overshoot.
+  - The reasoning retry at 2× the ceiling is allowed only if it fits.
+  - A capped run with an unpriced model is refused before any call.
+  - Stopping is clean: a budget_stop event, status "stopped" with reason "spending cap", and
+    everything that finished is kept.
+- Model scorecard: the Scorecard button, `cli --scorecard` and GET /api/scorecard.
+  - Per model, counted by code across saved runs: seats, participation, grounding (only where
+    checkable), audit findings, peer accept/reject, agenda coverage, movement, format slips,
+    $ per answer and seconds per call.
+  - Seats stopped before answering are not counted.
+- Shareable page: "page .html", GET /api/runs/:id/report.html and `cli --html`.
+  - One self-contained HTML file with every card and panel, no script, light and dark, and it fits a
+    phone.
+  - Prompts and documents are optional; documents appear once.
+- Live findings (DeepSeek), each with a regression test:
+  - A string closed with ' broke the whole answer; it is now repaired.
+  - A position-less fragment (an item's ["c3","c6"]) was accepted as the answer; it now goes to
+    repair.
+  - Bare claim ids are dropped.
+  - Arithmetic written with − ÷ × is now read.
+  - deepseek-chat is served by deepseek-flash, and the report now says so.
+- local/providers.json.example: the current DeepSeek ids (deepseek-flash, deepseek-v4-pro, plus the
+  legacy deepseek-chat) and Kimi ids (kimi-k3, kimi-k2.6).
+
+Tests (rev 15)
+- npm test: 107 pass, 0 fail (features 16, server 19, adapters 13, core 31, engine 23, page 5).
+- npm run matrix: 10 / 10. npm run test:ui: 14 / 14 (L cap stop, M scorecard, N shareable page added).
+- Live (DeepSeek, cap $0.25): a full run cost $0.042 at peak list price, with provider-reported tokens.
+  A $0.01 cap stopped a live run after one answer: $0.0049 spent, the second concurrent answer was
+  refused. A $0.004 cap stopped before the first call: $0 spent.
+
+rev 14 — 2026-09-30
+
+What changed (rev 14) — the PRD debate engine replaces the panel; zero dependencies; one engine everywhere
+- Redesign. The rev ≤13 panel/compare app (agent-debate.jsx, local/*.js, Express, esbuild, React) moves to
+  legacy/. The new app runs the PRD protocol:
+  - reading → independent answers with claims → code audit → participation gate → code-computed diff;
+  - then rounds of critique and rebuttal, a post-debate diff and a joint memo.
+  The console follows Model Bridge's layout: a Run configuration card, an "Intent, as read" card, a
+  live feed, and panels computed by code. docs/DESIGN.md is the contract.
+- Zero runtime dependencies: node:http, vanilla ES modules served as-is, node:test. There is no
+  npm install and no node_modules; the device VM can run the tests.
+- app/core (browser-safe): engine, prompts, audit, metrics, record, json, text, calc, files,
+  tools-protocol, mock-models. The same files run in the server, the console (imported directly from
+  /core/*.js) and the claude.ai page. A test asserts byte-identity for every engine function in the
+  page.
+- Phase 0 intent reading.
+  - The reading is shared with every later prompt, the memo writer's included.
+  - If the chosen reader fails, the next analyst on a different model reads it once. The fallback is
+    recorded.
+- Phase 1.
+  - Concurrent and independent: identical user prompts, and nobody sees anybody.
+  - Each claim carries a basis (quote | arithmetic | tool | reasoning | knowledge), evidence and a
+    load-bearing flag.
+  - Audit statuses: verified, verified_normalised, verified_elided, fabricated_quote, too_short;
+    arithmetic miscomputed / unsourced_operands; tool missing_tool_result / failed_tool /
+    tool_mismatch.
+- Guards.
+  - Participation gate: empty, failed and template-copying analysts are absent, not disagreeing.
+  - Template-copy detection in every shape.
+  - One JSON repair.
+  - Reasoning-channel recovery, now noted on the answer.
+  - Chain-of-thought memo re-asked, then labelled.
+- Critique.
+  - The agenda: every claim of the others with no counterpart of the critic's own must get a verdict.
+  - Root causes: evidence / interpretation / values, tallied by code.
+- Rebuttal.
+  - Identity-anchored: the analyst's own current answer plus only what was said to it.
+  - withdrawn_claims and new_claims are applied and audited.
+  - Rounds re-critique the current answers, and auto-stop when nobody moves.
+- Diff.
+  - Claim clustering is polarity-aware (opposite claims never merge) and requires numbers to agree.
+  - Also computed: pairwise overlap, position similarity, item consensus, verdict tally, movement and
+    "towards".
+  - A red flag is raised when agreement rises while grounding falls.
+- The judging lens (persona) now reaches every phase: answer, critique, rebuttal and memo.
+- Runs.
+  - Events are appended to local/runs/<id>.jsonl as they happen and replayed over SSE.
+  - On finish the run also writes <id>.json (record), .md (report), .meta.json and files/.
+  - Rev ≤13 runs (panel-*, compare-*) are listed as legacy with their reports.
+- Server.
+  - Loopback only, a Host allowlist (DNS rebinding), an Origin check on writes.
+  - Keys are never returned; providers are opt-in; unlisted models are refused before any call.
+  - Stop aborts in-flight calls (AbortSignal, including the Claude CLI process).
+- Adapters: learned temperature fix, max_completion_tokens, reasoning retry at twice the ceiling,
+  thinking dialect by base URL, and timeouts that follow the ceiling.
+- The Claude CLI seat keeps its isolation (empty temp dir, tools off, preamble, no ANTHROPIC_API_KEY).
+- Mock models: every behaviour (mock-1…mock-svg) is always offered, whatever an older providers.json
+  listed.
+- claude.ai page: build/artifact.js links the modules into dist/agent-debate.html.
+  - Claude tiers are reached through the sample capability.
+  - Reports are saved through the downloads capability.
+- Removed from the generic app: the markets plugin (moved to legacy/) and the Alpha Vantage MCP
+  example. plugins/example-fact-check (a Crossref DOI lookup and a Wayback snapshot, both keyless)
+  is the new worked example.
+- app/server/tools-check.mjs: checks every tool in the catalog, including plugins and MCP.
+- Live check (DeepSeek deepseek-chat ×2, 1 round, one document; about 8 calls). Every phase ran and the
+  memo was clean, but it exposed four defects. All four are fixed, with regression tests:
+  - Critics copied whole agenda rows as the claim reference ("B:c4 — Denver had 800 …"). normRef
+    rejected them, so every verdict was dropped (0 verdicts, 7–8 claims unargued). A reference at the
+    start of longer text now counts. After the fix: 14 verdicts, none unargued.
+  - The arithmetic audit read "1200 - 800; 1200 - 300" as one expression (unparseable) and missed a
+    result written as a word ("three cities", marked miscomputed). Now each computation is checked and
+    number words are read.
+  - Quotes shorter than 20 characters were refused even when they carried the figure ("Denver 800").
+    Short quotes with a number are now checked verbatim.
+  - Items annotated with their rank ("Austin — first") never matched "Austin", so identical picks
+    showed as 0% item agreement. The item key is now the name alone, and the schema asks for the name
+    only.
+
+Tests (rev 14)
+- npm test: 81 pass, 0 fail.
+  - core 31, engine 23, server 13, adapters 9, page 5.
+  - Mock models, a fake HTTP provider and a fake claude binary: no network, no keys.
+- npm run matrix: 10 / 10 questions pass (docs/TEST_MATRIX_QUESTIONS.md).
+- npm run test:ui: 11 / 11 browser checks pass (docs/TEST_MATRIX.md, docs/matrix/*.png).
+
+md5 (rev 14)
+  7cc482c166b1fa63a34b0beb1d394c67  app/cli.js
+  591ac9f663635ae9a25a469c7e7be698  app/core/audit.js
+  947332883fdf46106df0c0425b886458  app/core/calc.js
+  dd3a9cd15338a7c58d83f95f27628e0e  app/core/engine.js
+  9377eec5d97524df6a5a2e19ede1dd35  app/core/files.js
+  a3f5eab115010b5f856f29bb008432e7  app/core/json.js
+  24c2eecbc9d20445981d0788a894d8da  app/core/metrics.js
+  f85c641ea2fe12f8ce204843756fe538  app/core/mock-models.js
+  0970b57e53219cd5e7875b1829ec1527  app/core/prompts.js
+  40d0db3b7e2155ead0ea91f57b336de2  app/core/record.js
+  6c3ac71160212cfef5c4f6d0f30952b1  app/core/text.js
+  b2ed0e3c6fefcf5489ae3704f9d02e34  app/core/tools-protocol.js
+  4369455a4e828e9d7a0e1ede84e6416f  app/server/adapters.js
+  a510e452ba62556976d58b43035772e1  app/server/config.js
+  eb4a68e95ef1fe8d45be91a547fb8b7c  app/server/mcp.js
+  94da83dc9294f92a9740f7aab1c318bb  app/server/pdf-text.js
+  5a7b7cdc0b45c554e44c7c73355f884a  app/server/plugins.js
+  706f2c088291b2bb1cd3454cd471b9db  app/server/runs.js
+  f88ce4294ce0f9f9a4b64ed5b7761eaa  app/server/search-providers.json
+  2466937b87640f2986b44861f84e0fd2  app/server/server.js
+  2733a4980e5b1eb3eef0aaed6939f38b  app/server/tools-check.mjs
+  42d0c42fe95624655a7dc4a81aff1d4c  app/server/tools.js
+  ef8e093f62e46841950e153978940b70  app/ui/app.js
+  e9e42f1cdfb6e1d7a45c5476a386e13e  app/ui/dom.js
+  7a8003d5ed548dd7f986911e10e0683e  app/ui/feed.js
+  d1151fdce00c5695ece89ec6a467da6e  app/ui/host-server.js
+  06dfc13cf14083c345cbadac8f8a2c65  app/ui/index.html
+  b029ff30e7bd8bdfc3e39d3d46281eda  app/ui/panels.js
+  ec291fbb6162e9aef66cd0b3bfc5d2fa  app/ui/settings.js
+  b5982a6303e9c60243c02145c14ab908  build/artifact.js
+  ea71c06872104ca50fd6f0356200b717  build/host-artifact.js
+  d62196ad500f5360e7e1879bda9a506a  local/mcp.json.example
+  165b122847aad42f1022e3a1a4190e93  local/providers.json.example
+  9b5bab7914bcfa92e4a995b7277315fd  local/tools.json.example
+  a07c305c43a4026d3a754de2827eb598  personas/cautious-cfo.json
+  26c2f36502348875f6eea5bc6f69b869  personas/security-reviewer.json
+  31c7ed55b269ac4e329c846e1ba47e90  personas/skeptical-scientist.json
+  204a5a2de798c2bae7cc5d484fc4aef3  plugins/README.md
+  0e12251ca8a1d8477f46688a57884e97  plugins/example-fact-check/plugin.json
+  429788a29bcd660fbe680f25f0d06f92  plugins/example-fact-check/skills/fact-check/SKILL.md
+  116c77a2caf009620d02274248bff8cc  plugins/example-fact-check/tools.json
+  f2208fec514787df45cafc602b4ed51e  skills/evaluate-evidence/SKILL.md
+  15f812f2877f970d937a7f6ce907231b  skills/policy-tradeoffs/SKILL.md
+  f035182604dfc08dc1c427bf6e655a3d  skills/technical-review/SKILL.md
+  0cc94e0698942746ab72df6449c87fdc  tests/adapters.test.js
+  f99fa320b15aceb0f11518f9bcc66a7b  tests/artifact.test.js
+  04fe13751e59a5f5a5af1242643771a5  tests/core.test.js
+  002c332d4fcacd70136baaba7b6eecf3  tests/engine.test.js
+  c0f7b203796602a898586e4801603bf8  tests/matrix.mjs
+  504ecb6824dd0135d6fd5551d8fc9e9b  tests/server.test.js
+  9cc0057e07bf8be940536bc656c1c340  tests/ui/run-ui.mjs
+  b04b801980ad56c228752096e7086d5c  package.json
+  02c4aab44b4be3ae18b9560923907537  README.md
+  7ca7cf7c781b6c80efd37b08b1806198  CLAUDE.md
+  805ffe23dbc89ca0b9a5fac7f002d5f7  docs/DESIGN.md
+
+rev 13 — 2026-09-11
+
+What changed (rev 13) — MCP servers, plugins, and three defects from a live "deep dive" run
+- mcp.js (new): remote MCP servers as a tool source. JSON-RPC over streamable HTTP/SSE, initialize →
+  tools/list (5-min cache) → tools/call; JSON Schema becomes the usual arg map; tools enter the catalog as
+  server.tool. https:// only (http:// on localhost) — no stdio, so no model's tool call spawns a process.
+  ${VAR} headers from .env; a literal key is refused; an unresolved var drops the header instead of sending
+  "Bearer ". Settings › MCP & plugins: add, test, enable, remove.
+- plugins.js + plugins/ (new): a folder bundling skills/, tools.json and mcp.json. Enabled state lives in
+  local/plugins.json, never in the plugin. Your tools.json wins collisions. plugins/example-markets ships as
+  a worked example (one skill, one keyless EDGAR tool).
+- server.js: toolCatalog() merges tools.json + plugin tools + MCP tools for the picker, /api/tool, /api/run
+  and the CLI alike; allSkills() does the same for skills. New: GET/PUT /api/mcp, POST /api/mcp/:id/test,
+  GET /api/plugins, POST /api/plugins/:id/enable.
+- engine.js + jsx: BUDGET_SPENT — a seat that spends its tool budget and replies with one more call now gets
+  one final turn asking for the answer, instead of being recorded "absent" (a 104 s Kimi run produced nothing).
+- tools.js: coerceArgs() — a model naming an argument from memory (wikipedia_summary({query}) for `title`, or
+  a bare string) no longer fails the call; the error, when it fires, names the tool's signature.
+- agent-debate.jsx: web_search on by default, and a warning when a prompt asks for current information while
+  it is off — the failure that reads as "the models are weak" when it is the harness.
+- mcp.js: ${VAR} works in the server URL as well as headers (Alpha Vantage's remote MCP takes the key as
+  ?apikey=…); a literal key in the query string is refused like one in a header. Settings shows every
+  variable a server needs, with a key box to write it to .env without a restart.
+- engine.js + jsx: the per-turn tool budget was the MINIMUM across the selected tools, so one modest tool
+  (treasury_rates, 1/turn) capped the whole turn at a single call however many were ticked — backwards for
+  research. turnBudget() is now the sum of the selected tools' budgets, ceiling MAX_TURN_CALLS=12, with each
+  tool still held to its own limit by overBudget(); the prompt block states both, and says research is
+  iterative and several calls may be sent at once.
+- engine.js + jsx: answerTokens() — the answer ceiling is now a function of the mandate (tools, skills,
+  attached words), 1500–6000, instead of the 1000-token default. The Claude CLI seat errors rather than
+  truncating at its ceiling, so a research answer died with "response exceeded the 1000 output token maximum".
+- adapters.js: a reasoning model that finishes (finish_reason=stop) with an empty content channel is retried
+  once with a prompt nudge asking for the answer as ordinary content — Kimi k3 does this on long turns and
+  was being recorded absent after 82 s of real work.
+- engine.js + jsx: parseToolCalls() now reads the provider tool dialects as well as our JSON line —
+  DeepSeek's DSML invoke blocks, <tool_call>/<function_call> JSON (Qwen/Kimi/vLLM), Anthropic-style
+  <invoke name=…><parameter name=…>, and the OpenAI {name, arguments} spelling. Live, a seat that replied
+  in its own dialect had the markup recorded as its answer and lost the whole turn.
+- tools.js: extract { "text": true | "strip" } for endpoints that answer CSV/XML rather than JSON records.
+- plugins/example-markets is now a real markets plugin: skills stock-deep-dive + equity-screening, and five
+  keyless tools (sec_filings_index, sec_company_facts, stock_quote, stock_history, treasury_rates). Quotes come
+  from Yahoo's keyless chart endpoint — Stooq now demands JS verification and 404s a plain CSV request.
+- tools.js: a tool may declare "defaults" for optional arguments, so a model that omits one does not produce
+  "range=" in a URL and a 400 the seat has to interpret.
+- server.js: /api/settings/keys accepts any ${VAR} an MCP server or enabled plugin refers to.
+- .gitignore: local/tools.json, seats.json, mcp.json, plugins.json are yours; mcp.json.example ships.
+
+What changed (rev 12) — four defects found by driving the real UI, and the dependencies that hid them
+- pdf-text.js (new): dependency-free PDF text layer — /ObjStm-aware object index, page-tree order, per-font
+  /ToUnicode CMaps, content stream run with the active font tracked. Undecodable text is reported, not attached.
+  Replaces pdfjs-dist, which was declared but never installed: every PDF attach failed on the Mac.
+- agent-debate.jsx: zipStore() — hand-written stored zip, replaces the bare import("jszip") the browser could not
+  resolve ("Download all" always alerted). inlineSiblings() — preview rewrites references to sibling files as data:
+  URLs, so `<img src="avatar.svg">` renders instead of showing alt text.
+- adapters.js: CLI_ISOLATION_PREAMBLE on every Claude-CLI call. The seat runs inside the user's logged-in CLI and
+  used the account's real email address in a résumé written for a fictional person; it is now told it has no user,
+  account, machine or repository, and that the prompt is its only source.
+- server.js: DEBATE_CONFIG_DIR now isolates .env too — two suites were reading the operator's real keys.
+- package.json: pdfjs-dist and jszip removed (back to zero runtime dependencies bar express/esbuild/react).
+- test-settings.mjs +15, test-prompts.mjs hermetic search-key handling. test-fixtures/chrome-generated.pdf (subset fonts).
+
+What changed (rev 11) — file uploads, richer downloads, real Stop, browser matrix
+- server.js: POST /api/extract (txt/md/csv/json/html + PDF text via pdf.js; images/Office refused with reasons; 25 MB cap).
+- agent-debate.jsx: Attach panel with file uploads + chips; FilesView: Download, Save as PDF (print window), Download PNG (svg→canvas),
+  Download all (.zip via jszip), Open in new tab; ■ Stop aborts in-flight calls in both modes; optimistic Enable checkbox;
+  responder auto-names follow provider changes. engine.js: FILES_RULES asks for images/charts as SVG files.
+- adapters.js: mock-svg (page + svg chart), mock-slow (4 s, for Stop tests). debate-cli.mjs: compare call fixed (skills/context/--files were not wired).
+- test-ui.mjs (npm run test:ui): 22-check Playwright matrix → docs/TEST_MATRIX.md + docs/matrix/*.png. test-fixtures/sample.pdf.
+- package.json: deps pdfjs-dist, jszip; devDependency playwright; scripts test:ui.
+
+rev 10 local runtimes + /api/run · rev 9 files deliverable · rev 8 free tools/skills/context · rev 7 compare + status · rev 6 opt-in providers · rev 5 UI · rev 4 search backends · rev 3 tools · rev 2 Claude CLI · rev 1 fixes
+
+Tests: 309 prompts + 122 settings = 431 unit/API passed / 0 failed. Live: docs/TEST_RUNS.md.
+Not shipped (yours): local/providers.json, local/tools.json, .env, seats.json, mcp.json, plugins.json.
+After pulling this rev: restart `npm start` (server.js and the bundle both changed). No npm install needed.
+
+md5
+72934ddbdcf2850e1a05949b17b74a4e  agent-debate.jsx
+6d37293c67ba52bbc0fe9b4b0e3e7188  .gitignore
+0674d3bb62ec6d6737fd2fbda0f88e52  local/server.js
+c1ccc180bfd9479759fcb6c08f0e7934  local/adapters.js
+996ff648e1ada8f57fbed86aabda6a79  local/engine.js
+faf6e6679029a9dd8d9960b1c25f535e  local/tools.js
+b87c24938a0b88b30093b9b4f44d8f35  local/mcp.js
+e77ad746f9209b8ac0c7dc2c1bdead27  local/plugins.js
+94da83dc9294f92a9740f7aab1c318bb  local/pdf-text.js
+ae8fea393eddf62c66ebdec2e80470a4  local/tools-check.mjs
+f7d7811053f91100bbe1bc522fec78c0  local/debate-cli.mjs
+6a1ec3682e198b6b5e5d2d079f0f5e01  local/test-prompts.mjs
+ecbf7bc7aad40c9659e25b3d8410df78  local/test-settings.mjs
+e8726c47ac9476083ca1234cf2197346  local/test-ui.mjs
+750466ad4cfbc15b507a6f86f7471cf7  local/providers.json.example
+9b5bab7914bcfa92e4a995b7277315fd  local/tools.json.example
+febd1e18e766c545aa6206b2e897eed2  local/mcp.json.example
+f88ce4294ce0f9f9a4b64ed5b7761eaa  local/search-providers.json
+dc2fff3431eb5aa65ed271b145519dc3  local/index.html
+f89cc62883870627748528308f7e6c20  local/entry.jsx
+dc013154a6f5ef8f3c929ed463f3baa8  local/package.json
+ab70ccf066c92433b100fba64d808b98  plugins/README.md
+6d89ea25881d9b787547f3aef0bb8f12  plugins/example-markets/plugin.json
+ed1408eb3863b0c6c47479b77365d679  plugins/example-markets/tools.json
+c9d708aef960a6272fcac4812b5bb062  plugins/example-markets/skills/equity-screening/SKILL.md
+15b707f9bf0f1023c665e4d9457aa0d2  local/test-fixtures/sample.pdf
+44da69156f2b5b3348bedc279d2a3e45  local/test-fixtures/chrome-generated.pdf
+c5755d4402b6c84c6190c8574234ccca  plugins/example-markets/skills/stock-deep-dive/SKILL.md

@@ -1,0 +1,20 @@
+{
+  "_comment": "Remote MCP servers. Copy to mcp.json (git-ignored) or add them in Settings \u203a MCP & plugins. Keys live in .env: write ${VAR_NAME} in a header OR in the URL's query string, never the key itself. A server is only reachable by the seats when enabled is true.",
+  "servers": {
+    "docs": {
+      "label": "Team docs (example)",
+      "url": "https://example.invalid/mcp?key=${DOCS_MCP_KEY}",
+      "enabled": false,
+      "budget_per_turn": 3,
+      "_note": "A key in the query string is written as ${VAR}; the value lives in .env."
+    },
+    "your_server": {
+      "label": "Your server",
+      "url": "https://example.invalid/mcp",
+      "headers": {
+        "Authorization": "Bearer ${YOUR_SERVER_TOKEN}"
+      },
+      "enabled": false
+    }
+  }
+}

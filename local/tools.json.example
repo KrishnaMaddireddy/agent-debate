@@ -1,0 +1,459 @@
+{
+  "_comment": "Tools every seat may call during its turn (the intent reader and the Chair never get tools). A tool is a direct `http` call, a provider-independent one (`providers` from search-providers.json; first backend with keys set wins, `use` or WEB_SEARCH_PROVIDER forces), or a `builtin` implemented in tools.js. ${NAME} in http.* is an argument if one matches, else a variable from .env \u2014 keys never appear in prompts or the browser. `extract` picks a list (or `object`) out of the response and the fields to show. Argument descriptions starting with 'optional' may be omitted. `category` groups tools in the UI.",
+  "web_search": {
+    "category": "web",
+    "description": "Search the web. Returns up to 5 results with title, url and snippet.",
+    "args": {
+      "query": "string \u2014 what to search for"
+    },
+    "providers": [
+      "serpex",
+      "serper",
+      "brave",
+      "tavily",
+      "serpapi",
+      "searxng",
+      "duckduckgo"
+    ],
+    "budget_per_turn": 3,
+    "timeoutMs": 30000
+  },
+  "fetch_url": {
+    "category": "web",
+    "builtin": "fetch_url",
+    "description": "Read a web page (or JSON API) as plain text \u2014 use it on a url that web_search returned. Give a query to get only the passages that mention it.",
+    "args": {
+      "url": "string \u2014 the page to read",
+      "query": "optional string \u2014 words to look for; returns matching passages instead of the whole page"
+    },
+    "budget_per_turn": 3,
+    "timeoutMs": 20000,
+    "maxChars": 6000
+  },
+  "calculate": {
+    "category": "reasoning",
+    "builtin": "calculate",
+    "description": "Evaluate an arithmetic expression exactly: + - * / ^ %, parentheses, sqrt, abs, round, ln, log, exp, min, max; k/m/b suffixes; percentages. Use it for any number you would otherwise estimate.",
+    "args": {
+      "expression": "string \u2014 e.g. (1.03^10 - 1) * 100"
+    },
+    "budget_per_turn": 5
+  },
+  "read_context": {
+    "category": "reasoning",
+    "builtin": "read_context",
+    "description": "Quote from the documents attached to this session. Without a query you get the beginning of the text; with a query you get the paragraphs that mention it.",
+    "args": {
+      "query": "optional string \u2014 words to look for in the attached documents"
+    },
+    "budget_per_turn": 4
+  },
+  "read_skill": {
+    "category": "reasoning",
+    "builtin": "read_skill",
+    "description": "Read one of the house skills listed in your brief \u2014 a procedure for this kind of question.",
+    "args": {
+      "name": "string \u2014 the skill's name exactly as listed"
+    },
+    "budget_per_turn": 3
+  },
+  "wikipedia_search": {
+    "category": "reference",
+    "description": "Search English Wikipedia. Returns article titles with a snippet; follow up with wikipedia_summary.",
+    "args": {
+      "query": "string"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://en.wikipedia.org/w/api.php",
+      "query": {
+        "action": "query",
+        "list": "search",
+        "srsearch": "${query}",
+        "srlimit": 5,
+        "format": "json",
+        "utf8": 1
+      }
+    },
+    "extract": {
+      "list": "query.search",
+      "fields": [
+        "title",
+        "snippet",
+        "wordcount"
+      ],
+      "limit": 5
+    },
+    "budget_per_turn": 3
+  },
+  "wikipedia_summary": {
+    "category": "reference",
+    "description": "The lead section of one English Wikipedia article, by exact title.",
+    "args": {
+      "title": "string \u2014 article title, e.g. Nuclear power"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://en.wikipedia.org/api/rest_v1/page/summary/${title}"
+    },
+    "extract": {
+      "object": true,
+      "fields": [
+        "title",
+        "description",
+        "extract",
+        "content_urls.desktop.page"
+      ],
+      "rename": {
+        "content_urls.desktop.page": "url"
+      },
+      "maxLen": 1500
+    },
+    "budget_per_turn": 3
+  },
+  "wikidata": {
+    "category": "reference",
+    "description": "Look up an entity in Wikidata (structured facts: people, places, organisations, concepts). Returns matching entities with a one-line description.",
+    "args": {
+      "query": "string"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://www.wikidata.org/w/api.php",
+      "query": {
+        "action": "wbsearchentities",
+        "search": "${query}",
+        "language": "en",
+        "limit": 5,
+        "format": "json"
+      }
+    },
+    "extract": {
+      "list": "search",
+      "fields": [
+        "label",
+        "description",
+        "concepturi"
+      ],
+      "rename": {
+        "concepturi": "url"
+      },
+      "limit": 5
+    },
+    "budget_per_turn": 3
+  },
+  "country_facts": {
+    "category": "data",
+    "description": "Facts about a country by ISO code (World Bank): name, capital, region, income level, coordinates. Use world_bank for numbers such as population or GDP.",
+    "args": {
+      "country": "string \u2014 ISO2 or ISO3 code, e.g. FR, IND, USA"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://api.worldbank.org/v2/country/${country}",
+      "query": {
+        "format": "json"
+      }
+    },
+    "extract": {
+      "list": "1",
+      "fields": [
+        "name",
+        "capitalCity",
+        "region.value",
+        "incomeLevel.value",
+        "longitude",
+        "latitude"
+      ],
+      "limit": 1
+    },
+    "budget_per_turn": 3
+  },
+  "world_bank": {
+    "category": "data",
+    "description": "A World Bank indicator for a country, most recent 5 years. Common indicators: NY.GDP.MKTP.CD (GDP US$), SP.POP.TOTL (population), EN.ATM.CO2E.PC (CO2 t/capita), EG.ELC.NUCL.ZS (nuclear share of electricity), EG.ELC.RNEW.ZS (renewables share), SP.DYN.LE00.IN (life expectancy), FP.CPI.TOTL.ZG (inflation).",
+    "args": {
+      "country": "string \u2014 ISO2/ISO3 code, e.g. US, FR, IND",
+      "indicator": "string \u2014 indicator code"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://api.worldbank.org/v2/country/${country}/indicator/${indicator}",
+      "query": {
+        "format": "json",
+        "mrv": 5
+      }
+    },
+    "extract": {
+      "list": "1",
+      "fields": [
+        "country.value",
+        "indicator.value",
+        "date",
+        "value"
+      ],
+      "limit": 5
+    },
+    "budget_per_turn": 4
+  },
+  "fx_rates": {
+    "category": "data",
+    "description": "Current exchange rate between two currencies (ECB reference rates via Frankfurter).",
+    "args": {
+      "from": "string \u2014 e.g. USD",
+      "to": "string \u2014 e.g. EUR"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://api.frankfurter.app/latest",
+      "query": {
+        "from": "${from}",
+        "to": "${to}"
+      }
+    },
+    "extract": {
+      "object": true,
+      "fields": [
+        "date",
+        "base",
+        "rates"
+      ]
+    },
+    "budget_per_turn": 3
+  },
+  "crypto_price": {
+    "category": "data",
+    "description": "Current price of a cryptocurrency in USD (CoinGecko).",
+    "args": {
+      "coin": "string \u2014 CoinGecko id, e.g. bitcoin, ethereum"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://api.coingecko.com/api/v3/simple/price",
+      "query": {
+        "ids": "${coin}",
+        "vs_currencies": "usd",
+        "include_24hr_change": "true"
+      }
+    },
+    "budget_per_turn": 3
+  },
+  "geocode": {
+    "category": "data",
+    "description": "Find a place's latitude, longitude, country and population (Open-Meteo geocoding). Use before weather.",
+    "args": {
+      "place": "string \u2014 city or place name"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://geocoding-api.open-meteo.com/v1/search",
+      "query": {
+        "name": "${place}",
+        "count": 3,
+        "language": "en",
+        "format": "json"
+      }
+    },
+    "extract": {
+      "list": "results",
+      "fields": [
+        "name",
+        "country",
+        "admin1",
+        "latitude",
+        "longitude",
+        "population"
+      ],
+      "limit": 3
+    },
+    "budget_per_turn": 3
+  },
+  "weather": {
+    "category": "data",
+    "description": "Current weather and today's forecast for coordinates (Open-Meteo). Get coordinates with geocode first.",
+    "args": {
+      "latitude": "string",
+      "longitude": "string"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://api.open-meteo.com/v1/forecast",
+      "query": {
+        "latitude": "${latitude}",
+        "longitude": "${longitude}",
+        "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation",
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum",
+        "forecast_days": 1,
+        "timezone": "auto"
+      }
+    },
+    "extract": {
+      "object": true,
+      "fields": [
+        "timezone",
+        "current",
+        "daily"
+      ]
+    },
+    "budget_per_turn": 3
+  },
+  "hn_search": {
+    "category": "tech",
+    "description": "Search Hacker News stories (Algolia). Returns title, url, points and comment count.",
+    "args": {
+      "query": "string"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://hn.algolia.com/api/v1/search",
+      "query": {
+        "query": "${query}",
+        "tags": "story",
+        "hitsPerPage": 5
+      }
+    },
+    "extract": {
+      "list": "hits",
+      "fields": [
+        "title",
+        "url",
+        "points",
+        "num_comments",
+        "created_at"
+      ],
+      "limit": 5
+    },
+    "budget_per_turn": 3
+  },
+  "stackoverflow": {
+    "category": "tech",
+    "description": "Search Stack Overflow questions. Returns title, link, score and whether it is answered.",
+    "args": {
+      "query": "string"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://api.stackexchange.com/2.3/search/advanced",
+      "query": {
+        "order": "desc",
+        "sort": "relevance",
+        "q": "${query}",
+        "site": "stackoverflow",
+        "pagesize": 5
+      }
+    },
+    "extract": {
+      "list": "items",
+      "fields": [
+        "title",
+        "link",
+        "score",
+        "is_answered",
+        "answer_count"
+      ],
+      "rename": {
+        "link": "url"
+      },
+      "limit": 5
+    },
+    "budget_per_turn": 3
+  },
+  "paper_search": {
+    "category": "research",
+    "description": "Search academic papers across all fields (Semantic Scholar). Returns title, year, venue, citation count and url. Keyless access is rate-limited (429) \u2014 retry later or set SEMANTIC_SCHOLAR_API_KEY for higher limits.",
+    "args": {
+      "query": "string"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://api.semanticscholar.org/graph/v1/paper/search",
+      "query": {
+        "query": "${query}",
+        "limit": 5,
+        "fields": "title,year,venue,citationCount,url,externalIds"
+      },
+      "headers": {
+        "x-api-key": "${SEMANTIC_SCHOLAR_API_KEY?}"
+      }
+    },
+    "extract": {
+      "list": "data",
+      "fields": [
+        "title",
+        "year",
+        "venue",
+        "citationCount",
+        "url"
+      ],
+      "limit": 5
+    },
+    "budget_per_turn": 3
+  },
+  "biomed_search": {
+    "category": "research",
+    "description": "Search biomedical literature (Europe PMC, includes PubMed). Returns title, authors, journal, year, DOI.",
+    "args": {
+      "query": "string"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+      "query": {
+        "query": "${query}",
+        "format": "json",
+        "pageSize": 5,
+        "resultType": "lite"
+      }
+    },
+    "extract": {
+      "list": "resultList.result",
+      "fields": [
+        "title",
+        "authorString",
+        "journalTitle",
+        "pubYear",
+        "doi"
+      ],
+      "limit": 5
+    },
+    "budget_per_turn": 3
+  },
+  "book_search": {
+    "category": "reference",
+    "description": "Search books and authors (Open Library).",
+    "args": {
+      "query": "string"
+    },
+    "http": {
+      "method": "GET",
+      "url": "https://openlibrary.org/search.json",
+      "query": {
+        "q": "${query}",
+        "limit": 5,
+        "fields": "title,author_name,first_publish_year,subject"
+      }
+    },
+    "extract": {
+      "list": "docs",
+      "fields": [
+        "title",
+        "author_name",
+        "first_publish_year"
+      ],
+      "limit": 5
+    },
+    "budget_per_turn": 3
+  },
+  "mock_search": {
+    "category": "test",
+    "description": "Fake web search for dry runs \u2014 returns 3 made-up results echoing the query. No network.",
+    "args": {
+      "query": "string"
+    },
+    "mock": true,
+    "extract": {
+      "limit": 3
+    },
+    "budget_per_turn": 3
+  }
+}

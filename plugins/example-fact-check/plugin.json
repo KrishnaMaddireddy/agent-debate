@@ -1,0 +1,4 @@
+{
+  "label": "Fact check — sources and citations",
+  "description": "A procedure for checking claims against primary sources, plus two keyless tools: DOI metadata from Crossref and the nearest Wayback Machine snapshot of a page. A worked example of the plugin format; enable it in Settings › MCP & plugins."
+}

@@ -1,5 +1,26 @@
+# secrets and per-machine config — never commit
 .env
+.env.*
+!.env.example
 providers.json
+!providers.json.example
+local/tools.json
+local/seats.json
+local/mcp.json
+local/plugins.json
+local/runs/
+local/transcripts/
+# build output, OS noise, scratch
+node_modules/
+dist/
+legacy/local/dist/
+legacy/local/node_modules/
 runs/
 debate_*.md
-node_modules/
+.DS_Store
+.stage/
+Claude outputs/
+docs/matrix/FAIL-*.png
+legacy/tools.json
+# the rev ≤13 panel app: kept on disk for reference, not published
+legacy/

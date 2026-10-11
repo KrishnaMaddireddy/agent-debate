@@ -1,0 +1,19 @@
+{
+  "name": "agent-debate",
+  "private": true,
+  "type": "module",
+  "description": "N models answer one question independently, critique each other, rebut, and code measures what moved.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node app/server/server.js",
+    "cli": "node app/cli.js",
+    "test": "node --test tests/*.test.js",
+    "test:ui": "node tests/ui/run-ui.mjs",
+    "matrix": "node tests/matrix.mjs",
+    "build:artifact": "node build/artifact.js",
+    "tools:check": "node app/server/tools-check.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs"
+  }
+}

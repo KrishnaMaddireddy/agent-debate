@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Debate</title>
+<style>
+/* Console layout: three columns — run form | live feed | numbers computed by code. Dark-first, monospace, as Model Bridge. */
+:root {
+  --bg:#0d1117; --panel:#141a22; --panel2:#1a222c; --line:#232d3a; --line2:#2d3a4a;
+  --tx:#c9d5e2; --dim:#7c8b9d; --faint:#56657a;
+  --accent:#5aa9ff; --accent-bg:#16324f; --accent-line:#2b5580; --accent-tx:#cfe6ff;
+  --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+  --ok-bg:#0f1a12; --ok-line:#1d3324; --ok-tx:#8fd6a0;
+  --bad-bg:#2a1414; --bad-line:#5c2626; --bad-tx:#ffb4b4;
+  --warn-bg:#241d0e; --warn-line:#4d3b13; --warn-tx:#f0d99a;
+  --stop-bg:#3b1d1d; --stop-line:#6b2b2b; --stop-tx:#ffd0d0;
+  --shadow:0 12px 40px rgba(0,0,0,.45);
+  --rc-ev:#58a6ff; --rc-int:#d2a8ff; --rc-val:#e3b341;
+  color-scheme: dark;
+}
+:root[data-theme="dark"] {
+  --bg:#0d1117; --panel:#141a22; --panel2:#1a222c; --line:#232d3a; --line2:#2d3a4a;
+  --tx:#c9d5e2; --dim:#7c8b9d; --faint:#56657a;
+  --accent:#5aa9ff; --accent-bg:#16324f; --accent-line:#2b5580; --accent-tx:#cfe6ff;
+  --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+  --ok-bg:#0f1a12; --ok-line:#1d3324; --ok-tx:#8fd6a0;
+  --bad-bg:#2a1414; --bad-line:#5c2626; --bad-tx:#ffb4b4;
+  --warn-bg:#241d0e; --warn-line:#4d3b13; --warn-tx:#f0d99a;
+  --stop-bg:#3b1d1d; --stop-line:#6b2b2b; --stop-tx:#ffd0d0;
+  --shadow:0 12px 40px rgba(0,0,0,.45);
+  --rc-ev:#58a6ff; --rc-int:#d2a8ff; --rc-val:#e3b341;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+  --bg:#f5f7f9; --panel:#ffffff; --panel2:#eef2f6; --line:#d9e0e7; --line2:#c5cfd9;
+  --tx:#1d2733; --dim:#566474; --faint:#8593a3;
+  --accent:#0b62d6; --accent-bg:#e2eefc; --accent-line:#9cc1ef; --accent-tx:#0a3f86;
+  --ok:#1a7f37; --warn:#9a6700; --bad:#c62828;
+  --ok-bg:#e9f6ec; --ok-line:#b6dfc0; --ok-tx:#17602c;
+  --bad-bg:#fdecec; --bad-line:#f2b8b8; --bad-tx:#8f1d1d;
+  --warn-bg:#fdf5e2; --warn-line:#ecd49a; --warn-tx:#6b4a00;
+  --stop-bg:#fdecec; --stop-line:#f2b8b8; --stop-tx:#8f1d1d;
+  --shadow:0 12px 40px rgba(20,30,40,.18);
+  --rc-ev:#0b62d6; --rc-int:#7a3fb8; --rc-val:#8a5a00;
+  color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg:#f5f7f9; --panel:#ffffff; --panel2:#eef2f6; --line:#d9e0e7; --line2:#c5cfd9;
+  --tx:#1d2733; --dim:#566474; --faint:#8593a3;
+  --accent:#0b62d6; --accent-bg:#e2eefc; --accent-line:#9cc1ef; --accent-tx:#0a3f86;
+  --ok:#1a7f37; --warn:#9a6700; --bad:#c62828;
+  --ok-bg:#e9f6ec; --ok-line:#b6dfc0; --ok-tx:#17602c;
+  --bad-bg:#fdecec; --bad-line:#f2b8b8; --bad-tx:#8f1d1d;
+  --warn-bg:#fdf5e2; --warn-line:#ecd49a; --warn-tx:#6b4a00;
+  --stop-bg:#fdecec; --stop-line:#f2b8b8; --stop-tx:#8f1d1d;
+  --shadow:0 12px 40px rgba(20,30,40,.18);
+  --rc-ev:#0b62d6; --rc-int:#7a3fb8; --rc-val:#8a5a00;
+  color-scheme: light;
+}
+:root { --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--tx); font: 13px/1.55 var(--mono); }
+button, input, select, textarea { font: 12px var(--mono); color: var(--tx); }
+button { background: var(--panel2); border: 1px solid var(--line2); border-radius: 5px; padding: 4px 9px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent-line); }
+button:disabled { opacity: .45; cursor: default; }
+button.link { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+button.go { background: var(--accent-bg); border-color: var(--accent-line); color: var(--accent-tx); font-weight: 600; padding: 7px 14px; }
+button.stop { background: var(--stop-bg); border-color: var(--stop-line); color: var(--stop-tx); font-weight: 600; }
+input[type=text], input[type=password], input[type=number], select, textarea { background: var(--bg); border: 1px solid var(--line2); border-radius: 5px; padding: 5px 7px; min-width: 0; }
+textarea { resize: vertical; width: 100%; line-height: 1.5; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+a { color: var(--accent); }
+code { font-family: var(--mono); background: var(--panel2); padding: 0 4px; border-radius: 3px; }
+.muted { color: var(--dim); } .faint { color: var(--faint); } .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+[hidden] { display: none !important; }
+
+/* header */
+#top { display: flex; align-items: center; gap: 12px; padding: 0 14px; height: 46px; background: var(--panel); border-bottom: 1px solid var(--line); }
+#top .brand { font-size: 13.5px; letter-spacing: .2px; }
+#top .spacer { flex: 1; }
+#status { display: inline-flex; align-items: center; gap: 7px; color: var(--dim); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); display: inline-block; flex: none; }
+.dot.run { background: var(--warn); animation: pulse 1.1s infinite; } .dot.done { background: var(--ok); } .dot.fail { background: var(--bad); } .dot.stopped { background: var(--dim); }
+@keyframes pulse { 50% { opacity: .35; } }
+#viewing { background: var(--warn-bg); color: var(--warn-tx); border: 1px solid var(--warn-line); border-radius: 5px; padding: 3px 8px; }
+#downloads { display: inline-flex; gap: 6px; }
+
+/* three columns */
+.wrap { display: grid; grid-template-columns: var(--c1, 340px) 5px minmax(0, 1fr) 5px var(--c3, 360px); height: calc(100% - 46px); }
+.col { overflow: auto; padding: 12px; min-width: 0; }
+.rail { cursor: col-resize; background: transparent; border-left: 1px solid var(--line); }
+.rail:hover, .rail.drag { background: var(--accent-line); }
+@media (max-width: 980px) {
+  .wrap { display: block; height: auto; }
+  .rail { display: none; }
+  .col { overflow: visible; padding: 12px 16px; }
+  #top { flex-wrap: wrap; height: auto; min-height: 46px; padding: 6px 16px; }
+}
+
+/* cards */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 10px 12px; margin-bottom: 10px; }
+.card > h3, .sec { margin: 0 0 7px; font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--dim); font-weight: 600; }
+.card > h3 .src { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--faint); font-size: 10.5px; }
+.kv { display: flex; justify-content: space-between; gap: 14px; padding: 3px 0; border-bottom: 1px dotted var(--line); }
+.kv:last-child { border-bottom: 0; }
+.kv > :first-child { color: var(--dim); flex: none; }
+.kv > :last-child { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.field { margin: 9px 0; }
+.field > label, .lbl { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--dim); margin-bottom: 4px; }
+.hint { font-size: 11px; color: var(--faint); margin-top: 3px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line2); border-radius: 20px; padding: 0 8px; font-size: 11px; line-height: 19px; white-space: nowrap; }
+.who { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 5px; font-weight: 700; font-size: 11.5px; color: #0d1117; flex: none; }
+.chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line2); border-radius: 5px; padding: 1px 7px; font-size: 11.5px; background: var(--panel2); cursor: pointer; user-select: none; }
+.chip.on { background: var(--accent-bg); border-color: var(--accent-line); color: var(--accent-tx); }
+.chip .x { color: var(--faint); cursor: pointer; }
+.seg { display: inline-flex; border: 1px solid var(--line2); border-radius: 5px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: none; padding: 4px 10px; }
+.seg button[aria-pressed="true"] { background: var(--accent-bg); color: var(--accent-tx); }
+details > summary { cursor: pointer; color: var(--dim); list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: "▸ "; color: var(--faint); }
+details[open] > summary::before { content: "▾ "; }
+.echo { background: var(--ok-bg); border: 1px solid var(--ok-line); color: var(--ok-tx); border-radius: 4px; padding: 5px 8px; font-size: 11.5px; }
+.flag { background: var(--bad-bg); border: 1px solid var(--bad-line); color: var(--bad-tx); border-radius: 4px; padding: 5px 8px; font-size: 11.5px; margin: 4px 0; }
+.note { background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-tx); border-radius: 4px; padding: 5px 8px; font-size: 11.5px; margin: 6px 0; }
+
+/* the feed */
+#feed .empty { color: var(--faint); max-width: 62ch; margin: 40px auto; line-height: 1.7; }
+#feed .empty b { color: var(--dim); }
+.ev { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--line2); border-radius: 0 6px 6px 0; padding: 9px 12px; margin-bottom: 9px; max-width: 980px; }
+.ev.fresh { animation: in .22s ease-out; }
+@keyframes in { from { opacity: 0; transform: translateY(4px); } }
+.ev .h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+.ev .h .grow { flex: 1; }
+.ev.intent { border-left-color: var(--accent-line); }
+.ev.intent .muted { margin-top: 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; }
+.ev.intent ul { margin: 3px 0 4px 16px; padding: 0; }
+.ev.bad { border-left-color: var(--bad); }
+.ev.warn { border-left-color: var(--warn); }
+.ev.tool { background: var(--panel2); border-left-color: var(--faint); padding: 5px 10px; font-size: 12px; }
+.ev.memo { border-left-color: var(--ok); }
+.phase { background: var(--panel2); border-left: 3px solid var(--accent); padding: 5px 10px; margin: 16px 0 9px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--dim); max-width: 980px; }
+.position { font-size: 13.5px; margin: 2px 0 7px; }
+.claims { list-style: none; margin: 6px 0 0; padding: 0; }
+.claims li { display: grid; grid-template-columns: 16px auto 1fr; gap: 6px; padding: 3px 0; border-top: 1px dotted var(--line); align-items: baseline; }
+.claims li .mark { text-align: center; font-weight: 700; }
+.claims li .ref { color: var(--faint); font-size: 11px; }
+.claims li .ev-text { color: var(--dim); font-size: 11.5px; margin-top: 2px; overflow-wrap: anywhere; }
+.basis { font-size: 10.5px; border: 1px solid var(--line2); border-radius: 3px; padding: 0 4px; color: var(--dim); margin-right: 4px; }
+.basis.quote, .basis.arithmetic, .basis.tool { color: var(--accent); border-color: var(--accent-line); }
+.lb { color: var(--warn); }
+.verdicts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.divs { margin: 5px 0; padding: 0; list-style: none; }
+.divs li { padding: 4px 0; border-top: 1px dotted var(--line); }
+.rc { font-size: 10.5px; border-radius: 3px; padding: 0 5px; border: 1px solid; }
+.rc.evidence { color: var(--rc-ev); } .rc.interpretation { color: var(--rc-int); } .rc.values { color: var(--rc-val); } .rc.unclassified { color: var(--dim); }
+.rc { border-color: currentColor; }
+.memo-body h3, .memo-body h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--dim); margin: 14px 0 5px; }
+.memo-body p, .memo-body ul, .memo-body ol { margin: 5px 0; } .memo-body ul, .memo-body ol { padding-left: 18px; }
+.memo-body blockquote { margin: 6px 0; padding: 4px 10px; border-left: 3px solid var(--line2); color: var(--dim); }
+.memo-body table { border-collapse: collapse; margin: 6px 0; } .memo-body td, .memo-body th { border: 1px solid var(--line); padding: 3px 6px; }
+.files { margin-top: 7px; }
+.files .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+.files iframe { width: 100%; height: 420px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+.files pre { max-height: 420px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 8px; font-size: 11.5px; margin: 0; }
+
+/* right panels */
+.bar { height: 6px; border-radius: 3px; background: var(--panel2); overflow: hidden; margin: 3px 0 2px; }
+.bar > i { display: block; height: 100%; background: var(--accent); }
+.big { font-size: 17px; font-weight: 700; }
+.mx { border-collapse: collapse; font-size: 11.5px; margin-top: 4px; }
+.mx td, .mx th { border: 1px solid var(--line); padding: 3px 6px; text-align: center; }
+.mx th { color: var(--dim); font-weight: 600; }
+.hbar { display: grid; grid-template-columns: 110px 1fr 28px; align-items: center; gap: 6px; font-size: 11.5px; margin: 3px 0; }
+.hbar .bar { margin: 0; }
+
+.prow { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 7px; align-items: start; padding: 4px 0; border-bottom: 1px dotted var(--line); }
+.prow:last-child { border-bottom: 0; }
+.plabel { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qblock { font-size: 13.5px; font-weight: 700; margin: 2px 0 6px; overflow-wrap: anywhere; }
+/* history */
+.hist { display: flex; flex-direction: column; gap: 6px; }
+.hist .item { display: block; width: 100%; text-align: left; background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; }
+.hist .item.active { border-color: var(--accent-line); }
+.hist .q { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hist .meta { font-size: 11px; color: var(--faint); display: flex; gap: 6px; align-items: center; margin-top: 3px; flex-wrap: wrap; }
+
+/* analysts */
+.analyst { display: grid; grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1.2fr) 22px; gap: 5px; align-items: center; margin: 4px 0; }
+.analyst select { width: 100%; }
+
+/* modal */
+#modal { position: fixed; inset: 0; background: rgba(6, 9, 13, .72); display: flex; align-items: flex-start; justify-content: center; padding: 5vh 16px; z-index: 20; }
+#modal .box { background: var(--panel); border: 1px solid var(--line2); border-radius: 9px; box-shadow: var(--shadow); width: min(980px, 100%); max-height: 90vh; display: flex; flex-direction: column; }
+#modal .box > .top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+#modal .box > .body { overflow: auto; padding: 12px 14px; }
+#modal pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 8px; font-size: 11.5px; }
+.tabs-top { display: flex; gap: 2px; }
+.tabs-top button { border: 0; background: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 10px; color: var(--dim); }
+.tabs-top button[aria-selected="true"] { color: var(--tx); border-bottom-color: var(--accent); }
+.prov { border: 1px solid var(--line); border-radius: 7px; padding: 9px 11px; margin-bottom: 9px; background: var(--panel); }
+.prov.on { border-color: var(--accent-line); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.toolrow { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; padding: 3px 0; align-items: start; }
+@media (prefers-reduced-motion: reduce) { .ev.fresh, .dot.run { animation: none; } }
+</style>
+</head>
+<body>
+<header id="top">
+  <b class="brand">Agent Debate</b><span id="rev" class="faint"></span>
+  <span id="status"><i class="dot" id="statusDot"></i><span id="statusText">idle</span><span id="elapsed" class="faint"></span></span>
+  <span class="spacer"></span>
+  <span id="viewing" hidden></span>
+  <button id="liveBtn" hidden>● back to live run</button>
+  <button id="stopBtn" class="stop" hidden>■ Stop</button>
+  <span id="downloads"></span>
+  <button id="scoreBtn" title="How each model has done across your runs">Scorecard</button>
+  <button id="themeBtn" title="Switch light / dark" aria-label="Switch light or dark theme">◐</button>
+  <button id="settingsBtn">Settings</button>
+</header>
+<div class="wrap" id="wrap">
+  <aside class="col" id="left">
+    <section class="card" id="formCard">
+      <h3>New run</h3>
+      <div class="field">
+        <label for="question">Question</label>
+        <textarea id="question" rows="3" placeholder="What should the models answer? A decision, a claim to test, a list to pick, a design to review…"></textarea>
+        <div id="qWarn"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Documents <span class="faint" style="text-transform:none;letter-spacing:0">— every model gets the same bytes</span></span>
+        <div class="row">
+          <button id="attachBtn" type="button">Attach files</button>
+          <button id="pasteBtn" type="button">Paste text</button>
+          <input id="fileInput" type="file" multiple hidden accept=".txt,.md,.csv,.json,.html,.htm,.pdf,.xml,.yaml,.yml,.tsv,.log">
+        </div>
+        <div id="pasteBox" hidden style="margin-top:6px">
+          <input type="text" id="pasteName" placeholder="name, e.g. notes.md" style="width:100%;margin-bottom:4px">
+          <textarea id="pasteText" rows="4" placeholder="Paste the text"></textarea>
+          <div class="row" style="margin-top:4px"><button id="pasteAdd" type="button">Add document</button><button id="pasteCancel" type="button" class="link">cancel</button></div>
+        </div>
+        <div id="docs" class="row" style="margin-top:6px"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Analysts</span>
+        <div id="analysts"></div>
+        <div class="row"><button id="addAnalyst" type="button">+ analyst</button><span id="analystNote" class="hint"></span></div>
+      </div>
+      <div class="field row" style="gap:14px">
+        <div><label for="rounds" class="lbl">Rounds</label>
+          <select id="rounds"><option value="0">0 · independent only</option><option value="1" selected>1 · critique + rebuttal</option><option value="2">2</option><option value="3">3</option></select></div>
+        <div><span class="lbl">Deliverable</span>
+          <span class="seg" id="deliverable"><button type="button" data-v="answer" aria-pressed="true">answer</button><button type="button" data-v="files" aria-pressed="false">files</button></span></div>
+      </div>
+      <div class="field">
+        <label for="persona">Judging lens</label>
+        <select id="persona" style="width:100%"><option value="">none — each model states its own standards</option></select>
+        <div class="hint" id="personaHint"></div>
+      </div>
+      <div class="field" id="skillsField">
+        <span class="lbl">House skills <span class="faint" style="text-transform:none;letter-spacing:0">✦ suggested by the question</span></span>
+        <div id="skills" class="row"></div>
+      </div>
+      <div class="field" id="toolsField">
+        <details id="toolsDetails"><summary><span class="lbl" style="display:inline">Tools</span> <span id="toolsSummary" class="faint"></span></summary>
+          <div id="tools" style="margin-top:6px"></div>
+        </details>
+      </div>
+      <details class="field" id="advanced"><summary><span class="lbl" style="display:inline">Advanced</span></summary>
+        <div class="field"><label for="expander">Question reading</label>
+          <select id="expander" style="width:100%"></select>
+          <div class="hint">One model reads the question once; every analyst gets that reading.</div></div>
+        <div class="field"><label for="synthesizer">Memo writer</label>
+          <select id="synthesizer" style="width:100%"></select>
+          <div class="hint">A model that did not debate is fairer; reusing the first is cheaper.</div></div>
+        <label class="row"><input type="checkbox" id="autoStop" checked> auto-stop when a round changes nobody's mind</label>
+        <label class="row"><input type="checkbox" id="largeCtx"> allow documents above the size limit</label>
+      </details>
+      <div class="field row" style="gap:6px;margin-top:10px">
+        <label for="cap" class="lbl" style="margin:0">Spending cap</label><span>$</span><input id="cap" type="number" min="0" max="1000" step="0.05" style="width:84px" placeholder="no cap" aria-describedby="capHint">
+        <span id="capHint" class="hint" style="margin:0">checked before every call; blank = no cap</span>
+      </div>
+      <div id="preflight" class="hint" style="margin:6px 0 8px"></div>
+      <div class="row"><button id="runBtn" class="go" type="button">▶ Run</button><span id="formErr" class="bad"></span></div>
+    </section>
+    <section class="card">
+      <h3>History</h3>
+      <div id="hist" class="hist"><div class="faint">No runs yet.</div></div>
+    </section>
+  </aside>
+  <div class="rail" id="rail1" title="drag to resize · double-click to reset"></div>
+  <main class="col" id="feed" aria-live="polite">
+    <div class="empty" id="emptyState">
+      <p><b>Ask one question of several models.</b> Each answers alone first, with every claim labelled by what supports it — a quote from your documents, a calculation, a tool result, or its own reasoning or knowledge.</p>
+      <p>Then they critique each other, answer the critiques, and declare final positions. Code, not a model, measures what they agreed on, what they could prove, and who changed their mind.</p>
+      <p>Pick at least two analysts on the left and press <b>▶ Run</b>. The mock models work with no keys.</p>
+    </div>
+  </main>
+  <div class="rail" id="rail2" title="drag to resize · double-click to reset"></div>
+  <aside class="col" id="right">
+    <div id="panels"><div class="card"><h3>Computed here <span class="src">— by code, from the run's events; never written by a model</span></h3><div class="faint">Panels appear as the run produces answers.</div></div></div>
+  </aside>
+</div>
+<div id="modal" hidden role="dialog" aria-modal="true"><div class="box"><div class="top"><b id="modalTitle"></b><span class="spacer" style="flex:1"></span><span id="modalTools"></span><button id="modalClose">Close</button></div><div class="body" id="modalBody"></div></div></div>
+<script type="module" src="/ui/app.js"></script>
+</body>
+</html>

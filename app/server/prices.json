@@ -1,0 +1,23 @@
+{
+  "_comment": "List prices, USD per 1M tokens, used only when providers.json sets no price for a model. Matched on the provider's API host and the model id. Where a provider charges peak and off-peak rates, the PEAK rate is listed, so a spending cap errs on the safe side. Prices change: set your own per model in Settings › Providers, and it wins.",
+  "checked": "2026-10-10",
+  "hosts": {
+    "api.deepseek.com": {
+      "source": "api-docs.deepseek.com/quick_start/pricing, peak rate, checked 2026-10-10",
+      "models": {
+        "deepseek-flash": { "in": 0.30, "cachedIn": 0.006, "out": 1.20 },
+        "deepseek-chat": { "in": 0.30, "cachedIn": 0.006, "out": 1.20, "note": "legacy id, served by deepseek-flash (verified 2026-10-10)" },
+        "deepseek-v4-flash": { "in": 0.30, "cachedIn": 0.006, "out": 1.20 },
+        "deepseek-v4-pro": { "in": 1.32, "cachedIn": 0.044, "out": 3.96 }
+      }
+    },
+    "api.moonshot.ai": {
+      "source": "platform.kimi.ai/docs/pricing/chat, checked 2026-10-10",
+      "models": {
+        "kimi-k3": { "in": 3.00, "cachedIn": 0.30, "out": 15.00 },
+        "kimi-k2.6": { "in": 0.95, "cachedIn": 0.16, "out": 4.00 },
+        "kimi-k2.7-code": { "in": 0.95, "cachedIn": 0.19, "out": 4.00 }
+      }
+    }
+  }
+}
